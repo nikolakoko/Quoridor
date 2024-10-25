@@ -10,3 +10,9 @@ class BoardPieceStat:
     OCCUPIED_WALL = 3
     FREE_PAWN = 4
     FREE_WALL = 5
+
+class Direction:
+    EAST = 1
+    WEST = 2
+    NORTH = 3
+    SOUTH = 4
