@@ -15,20 +15,17 @@ class GameState:
         self.turn = True
 
         if initialization:
-            self.player_one_pos = np.array([16, 8])
-            self.player_two_pos = np.array([0, 8])
+            self.player_one_pos = (16, 8)
+            self.player_two_pos = (0, 8)
+            self.player_two_pos = (14, 8)
             self.board = np.zeros((289,), dtype=int)
             self.setup_board()
 
-        self.moves: {
-            'up': (2, 0),  
+        self.moves = {
+            'up': (2, 0),
             'down': (-2, 0),
             'left': (0, -2),
             'right': (0, 2),
-            'down-left': (2, -2),
-            'down-right': (2, 2),
-            'up-left': (-2, -2),
-            'up-right': (-2, 2)
         }
 
     def setup_board(self):
@@ -62,8 +59,10 @@ class GameState:
         return x * self.cols + y
 
     def player_stats(self):
-        print(f'Player 1 remaining walls: {self.player_one_walls}   {Stuff.PLAYER_ONE}')
-        print(f'Player 2 remaining walls: {self.player_two_walls}   {Stuff.PLAYER_TWO}')
+        print(f'Player 1 remaining walls: {
+              self.player_one_walls}   {Stuff.PLAYER_ONE}')
+        print(f'Player 2 remaining walls: {
+              self.player_two_walls}   {Stuff.PLAYER_TWO}')
 
     def print_board(self):
         player_positions = "|"
@@ -80,17 +79,14 @@ class GameState:
                 print(f'  {chr(ascii_capital)}  ', end="")
                 ascii_capital = ascii_capital + 2
             else:
-                print(f'{chr(ascii_lower)}', end="")
+                print(Stuff.WALL_COLOR + chr(ascii_lower) +
+                      Stuff.COLOR_RESET, end="")
                 ascii_lower = ascii_lower + 2
 
         ascii_capital = 65
         ascii_lower = 98
 
-        # Printing the letters for the columns and the grid
-
-        # for i in range(len(self.board)):
-        #     if self.board[i] == BoardPieceStat.OCCUPIED_BY_PLAYER_TWO:
-        #         print(i)
+        # Printing the letters for the columns and the grid\
 
         for col in range(self.cols):
             if col % 2 == 0:
@@ -98,91 +94,87 @@ class GameState:
                 ascii_capital = ascii_capital + 2
                 for place in range(self.cols):
                     id = self.get_id(col, place)
+                    # if self.board[id] == BoardPieceStat.FREE_PAWN:
+                    #     print(f'{col, place}', end="")
                     if self.board[id] == BoardPieceStat.FREE_PAWN:
-                        print(f'{col, place}', end="")
+                        print(f'     ', end="")
                     elif self.board[id] == BoardPieceStat.FREE_WALL:
                         print(f'{player_positions}', end="")
                     elif self.board[id] == BoardPieceStat.OCCUPIED_BY_PLAYER_ONE:
-                        print(f'  {Stuff.PLAYER_ONE}  ', end="")
+                        print(f'  {Stuff.PLAYER_ONE} ', end="")
                     elif self.board[id] == BoardPieceStat.OCCUPIED_BY_PLAYER_TWO:
-                        print(f'  {Stuff.PLAYER_TWO}  ', end="")
+                        print(f'  {Stuff.PLAYER_TWO} ', end="")
                     else:
                         print(Stuff.WALL_COLOR + player_positions +
                               Stuff.COLOR_RESET, end="")
 
             else:
-                print(f'\n{chr(ascii_lower)} ', end="")
+                print("\n" + Stuff.WALL_COLOR + chr(ascii_lower) +
+                      " " + Stuff.COLOR_RESET, end="")
                 ascii_lower = ascii_lower + 2
-
-                for place in range(self.cols - 1):
+                for place in range(self.cols):
                     id = self.get_id(col, place)
-                    if self.board[id] == BoardPieceStat.FREE_PAWN:
-                        print(f'{player_positions}', end="")
-                for place in range(1, self.cols + 1):
-                    if place % 2 == 1 and place < 17:
-                        print(f'{wall_positions}', end="")
-                    elif place == 17:
-                        print(f'{wall_positions[:5]}', end="")
+                    if place % 2 == 0 and place < 16:
+                        if self.board[id] == BoardPieceStat.OCCUPIED_WALL:
+                            print(Stuff.WALL_COLOR + wall_positions[:5] +
+                                  Stuff.COLOR_RESET + wall_positions[5], end="")
+                        else:
+                            print(f'{wall_positions}', end="")
+                    elif place == 16:
+                        if self.board[id] == BoardPieceStat.OCCUPIED_WALL:
+                            print(Stuff.WALL_COLOR + wall_positions[:5] +
+                                  Stuff.COLOR_RESET, end="")
+                        else:
+                            print(f'{wall_positions[:5]}', end="")
+                    else:
+                        self.board[id] == None
 
-    def is_palce_free(self, x, y):
+        print()
+
+    def is_place_free(self, place):
+        x, y = place
         id = self.get_id(x, y)
         return self.board[id] == BoardPieceStat.FREE_PAWN or self.board[id] == BoardPieceStat.FREE_WALL
 
-    def is_diagonal(self, move):
-        if self.turn:
-            if abs(self.player_one_pos[0] - move[0]) == 2 and abs(self.player_one_pos[1] - move[1]) == 2: 
-                if self.player_one_pos[0] - self.player_two_pos[0] == 2 and self.player_one_pos[1] == self.player_two_pos[1]:
-                    return True, Direction.NORTH
-                elif self.player_one_pos[0] - self.player_two_pos[0] == -2 and self.player_one_pos[1] == self.player_two_pos[1]:
-                    return True, Direction.SOUTH
-                elif self.player_one_pos[0] == self.player_two_pos[0] and self.player_one_pos[1] - self.player_two_pos[1] == 2:
-                    return True, Direction.WEST
-                elif self.player_one_pos[0] == self.player_two_pos[0] and self.player_one_pos[1] - self.player_two_pos[1] == -2:
-                    return True, Direction.EAST
-            return False
-        # return abs(self.player_two_pos[0] - move[0]) == 2 and abs(self.player_two_pos[1] - move[1]) == 2
-        else:
-            if abs(self.player_two_pos[0] - move[0]) == 2 and abs(self.player_two_pos[1] - move[1]) == 2: 
-                if self.player_two_pos[0] - self.player_one_pos[0] == 2 and self.player_two_pos[1] == self.player_one_pos[1]:
-                    return True, Direction.NORTH
-                elif self.player_two_pos[0] - self.player_one_pos[0] == -2 and self.player_two_pos[1] == self.player_one_pos[1]:
-                    return True, Direction.SOUTH
-                elif self.player_two_pos[0] == self.player_one_pos[0] and self.player_two_pos[1] - self.player_one_pos[1] == 2:
-                    return True, Direction.WEST
-                elif self.player_two_pos[0] == self.player_one_pos[0] and self.player_two_pos[1] - self.player_one_pos[1] == -2:
-                    return True, Direction.EAST
-            return False
+    # def determine_direction(self):
+    #     if self.player_one_pos[0] - self.player_two_pos[0] == 2 and self.player_one_pos[1] == self.player_two_pos[1]:
+    #         if self.turn:
+    #             return Direction.NORTH
+    #         return Direction.SOUTH
+    #     elif self.player_one_pos[0] - self.player_two_pos[0] == -2 and self.player_one_pos[1] == self.player_two_pos[1]:
+    #         if self.turn:
+    #             return Direction.SOUTH
+    #         return Direction.NORTH
+    #     elif self.player_one_pos[0] == self.player_two_pos[0] and self.player_one_pos[1] - self.player_two_pos[1] == 2:
+    #         if self.turn:
+    #             return Direction.WEST
+    #         return Direction.EAST
+    #     elif self.player_one_pos[0] == self.player_two_pos[0] and self.player_one_pos[1] - self.player_two_pos[1] == -2:
+    #         if self.turn:
+    #             return Direction.EAST
+    #         return Direction.WEST
 
-    def is_jump(self, move):
-        if self.turn:
-            return abs(self.player_one_pos[0] - move[0]) == 4 and self.player_one_pos[1] == move[1] or abs(self.player_one_pos[1] - move[1]) == 4 and self.player_one_pos[0] == move[0]
-        return abs(self.player_two_pos[0] - move[0]) == 4 and self.player_two_pos[1] == move[1] or abs(self.player_two_pos[1] - move[1]) == 4 and self.player_two_pos[0] == move[0]
+    def is_diagonal_or_jump(self):
+        for place in self.moves.values():
+            opponent = (self.player_one_pos[0] + place[0],
+                        self.player_one_pos[1] + place[1])
+            if opponent == self.player_one_pos or opponent == self.player_two_pos:
+                return True
+        return False
 
     def is_goal(self):
         return self.player_one_pos[0] == 0 or self.player_two_pos[0 == 16]
-
-    def diagonal_move(self, move):
-        if self.turn:
-            old_x, old_y = self.player_one_pos
-        else:
-            old_x, old_y = self.player_two_pos
-        id = self.get_id(move[0], move[1])
-        if self.check_valid_pawn(move):
-            if self.is_diagonal(move)[0]:
-                if self.is_diagonal(move[1]) == Direction.WEST:
-                    self.move_pawn(move)
-                    
 
     def move_pawn(self, move):
         x, y = move
         id = self.get_id(x, y)
         if self.turn:
             old_x, old_y = self.player_one_pos
-            self.player_one_pos = np.array([x, y])
+            self.player_one_pos = (x, y)
             self.board[id] = BoardPieceStat.OCCUPIED_BY_PLAYER_ONE
         else:
             old_x, old_y = self.player_two_pos
-            self.player_two_pos = np.array([x, y])
+            self.player_two_pos = (x, y)
             self.board[id] = BoardPieceStat.OCCUPIED_BY_PLAYER_TWO
         self.board[self.get_id(old_x, old_y)] = BoardPieceStat.FREE_PAWN
 
@@ -192,26 +184,63 @@ class GameState:
         if self.check_valid_wall(place):
             if place[0] % 2 == 0:
                 if place[0] < 15:
-                    self.board[place[0] * self.cols + place[1]] = self.board[place[0] +
-                                                                            2 * self.cols + place[1]] = BoardPieceStat.OCCUPIED_WALL
+                    self.board[self.get_id(place[0], place[1])] = self.board[self.get_id(
+                        place[0] + 2, place[1])] = BoardPieceStat.OCCUPIED_WALL
                 else:
-                    self.board[place[0] * self.cols + place[1]] = self.board[place[0] -
-                                                                            2 * self.cols + place[1]] = BoardPieceStat.OCCUPIED_WALL
+                    self.board[self.get_id(place[0], place[1])] = self.board[self.get_id(
+                        place[0] - 2, place[1])] = BoardPieceStat.OCCUPIED_WALL
 
             # Placement of horizontal walls
 
             else:
                 if place[1] < 15:
-                    self.board[place[0] * self.cols + place[1]] = self.board[place[0]
-                                                                            * self.cols + place[1] + 2] = BoardPieceStat.OCCUPIED_WALL
+                    self.board[self.get_id(place[0], place[1])] = self.board[self.get_id(
+                        place[0], place[1] + 2)] = BoardPieceStat.OCCUPIED_WALL
                 else:
-                    self.board[place[0] * self.cols + place[1]] = self.board[place[0]
-                                                                            * self.cols + place[1] - 2] = BoardPieceStat.OCCUPIED_WALL
+                    self.board[self.get_id(place[0], place[1])] = self.board[self.get_id(
+                        place[0], place[1] - 2)] = BoardPieceStat.OCCUPIED_WALL
 
             if self.turn:
                 self.player_one_walls -= 1
             else:
                 self.player_two_walls -= 1
+        else:
+            return False
+
+    def possible_moves_wall(self):
+        pass
+
+    def possible_moves_pawn(self):
+        if self.turn:
+            old_place = self.player_one_pos
+        else:
+            old_place = self.player_two_pos
+        wall_places = {
+            'up': (1, 0),
+            'down': (-1, 0),
+            'left': (0, -1),
+            'right': (0, 1)
+        }
+
+        moves = list()
+        for wall, pawn in zip(wall_places.values(), self.moves.values()):
+            wall_place = (old_place[0] + wall[0], old_place[1] + wall[1])
+            pawn_place = (old_place[0] + pawn[0], old_place[1] + pawn[1])
+            if self.check_valid_pawn(pawn_place) and self.is_place_free(wall_place):
+                moves.append(pawn_place)
+        if self.is_diagonal_or_jump():
+            opp = self.get_opp_location()
+            for wall, pawn in zip(wall_places.values(), self.moves.values()):
+                wall_place = (opp[0] + wall[0], opp[1] + wall[1])
+                pawn_place = (opp[0] + pawn[0], opp[1] + pawn[1])
+                if self.check_valid_pawn(pawn_place) and self.is_place_free(wall_place):
+                    moves.append(pawn_place)
+        return moves
+
+    def get_opp_location(self):
+        if self.turn:
+            return self.player_two_pos
+        return self.player_one_pos
 
     def check_valid_pawn(self, place):
         x, y = place[0], place[1]
@@ -227,18 +256,20 @@ class GameState:
             return False
         if place[0] % 2 == 0 and place[1] % 2 == 1:
             if place[0] < 15:
-                if self.board[place[0] * self.cols + place[1]] == self.board[place[0] + 2 * self.cols + place[1]] == BoardPieceStat.OCCUPIED_WALL:
+                if self.board[self.get_id(place[0], place[1])] == self.board[self.get_id(place[0] + 2, place[1])] == BoardPieceStat.OCCUPIED_WALL:
                     return False
             else:
-                if self.board[place[0] * self.cols + place[1]] == self.board[place[0] - 2 * self.cols + place[1]] == BoardPieceStat.OCCUPIED_WALL:
+                if self.board[self.get_id(place[0], place[1])] == self.board[self.get_id(place[0] - 2, place[1])] == BoardPieceStat.OCCUPIED_WALL:
                     return False
         elif place[0] % 2 == 1 and place[1] % 2 == 0:
             if place[1] < 15:
-                if self.board[place[0] * self.cols + place[1]] == self.board[place[0] * self.cols + place[1] + 2] == BoardPieceStat.OCCUPIED_WALL:
+                if self.board[self.get_id(place[0], place[1])] == self.board[self.get_id(place[0], place[1] + 2)] == BoardPieceStat.OCCUPIED_WALL:
                     return False
             else:
-                if self.board[place[0] * self.cols + place[1]] == self.board[place[0] * self.cols + place[1] - 2] == BoardPieceStat.OCCUPIED_WALL:
+                if self.board[self.get_id(place[0], place[1])] == self.board[self.get_id(place[0], place[1] - 2)] == BoardPieceStat.OCCUPIED_WALL:
                     return False
+        else:
+            return False
         return True
         # game_state = self.test_state()
         # game_state.place_wall(place)
@@ -247,5 +278,11 @@ class GameState:
 
 if __name__ == '__main__':
     stateGame = GameState()
+    # stateGame.board[stateGame.get_id(14, 7)] = BoardPieceStat.OCCUPIED_WALL
+    # stateGame.board[stateGame.get_id(14, 9)] = BoardPieceStat.OCCUPIED_WALL
+    # stateGame.board[stateGame.get_id(15, 4)] = BoardPieceStat.OCCUPIED_WALL
+    stateGame.place_wall((15, 2))
+    stateGame.place_wall((10, 3))
     stateGame.player_stats()
     stateGame.print_board()
+    print(f'Possible moves: {stateGame.possible_moves_pawn()}')
