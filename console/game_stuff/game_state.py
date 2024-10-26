@@ -1,7 +1,6 @@
 import numpy as np
 from utils.stuff import Stuff
 from utils.stuff import BoardPieceStat
-from utils.stuff import Direction
 from copy import copy
 from searching import astar
 import os
