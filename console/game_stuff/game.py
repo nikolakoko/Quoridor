@@ -79,7 +79,6 @@ def random():
 def other(alg=3):
     if alg ==  1:
         from  algorithms.minimax import get_best_move
-        print("peder")
     elif alg == 2:
         from algorithms.monte_carlo_tree_search import get_best_move
     from algorithms.expectimax import get_best_move
