@@ -24,6 +24,7 @@ class GameState:
         self.player_one_walls = 10
         self.player_two_walls = 10
         self.turn = True
+        self.history = []
         self.number = {0: "A", 1: "b", 2: "C", 3: "d", 4: "E", 5: "f", 6: "G", 7: "h",
                        8: "I", 9: "j", 10: "K", 11: "l", 12: "M", 13: "n", 14: "O", 15: "p", 16: "Q"}
         self.alpa = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5, "G": 6, "H": 7,
@@ -199,10 +200,15 @@ class GameState:
 
     def move_pawn(self, move):
         mapped = self.map_alpha(move)
-        print(mapped)
         x, y = mapped
         id = self.get_id(x, y)
         if move in self.possible_moves_pawn():
+            self.history.append({
+                'player_one_pos': self.player_one_pos,
+                'player_two_pos': self.player_two_pos,
+                'board': copy(self.board),
+                'turn': self.turn
+            })
             if self.turn:
                 old_x, old_y = self.player_one_pos
                 self.player_one_pos = (x, y)
@@ -221,8 +227,6 @@ class GameState:
             return False
 
     def occupy_by_wall(self, place):
-        # place = self.map_alpha(place)
-        # Placement of vertical walls:
         if place[0] % 2 == 0:
             if place[0] < 15:
                 self.board[self.get_id(place[0], place[1])] = self.board[self.get_id(
@@ -242,8 +246,16 @@ class GameState:
                     place[0], place[1] - 2)] = BoardPieceStat.OCCUPIED_WALL
 
     def place_wall(self, place):
-        # place = self.map_alpha(place)
+        chr = str(place[0])
+        if chr.isalpha():
+            place = self.map_alpha(place)
         if self.check_valid_wall(place):
+            self.history.append({
+                'player_one_pos': self.player_one_pos,
+                'player_two_pos': self.player_two_pos,
+                'board': copy(self.board),
+                'turn': self.turn
+            })
             self.occupy_by_wall(place)
             if self.turn:
                 self.player_one_walls -= 1
@@ -258,6 +270,19 @@ class GameState:
                 wall = self.get_wall_coords(place)
             print(f'The wall {wall} is not valid!')
             return False
+
+    def undo(self):
+        if not self.history:
+            print("No wall placements to undo.")
+            return False
+
+        # Revert to the last state
+        last_state = self.history.pop()
+        self.player_one_walls = last_state['player_one_walls']
+        self.player_two_walls = last_state['player_two_walls']
+        self.board = last_state['board']
+        self.turn = last_state['turn']
+        return True
 
     def possible_moves_wall(self):
         if (self.turn and self.player_one_walls == 0) or (not self.turn and self.player_two_walls == 0):
@@ -275,7 +300,7 @@ class GameState:
                 if self.check_valid_wall((row, col)):
                     moves.append((row, col))
 
-        return moves
+        return np.array(moves)
 
     def possible_moves_pawn(self):
         if self.turn:
@@ -283,7 +308,7 @@ class GameState:
         else:
             old_place = self.player_two_pos
 
-        moves = list()
+        moves = []
         for wall, pawn in zip(self.wall_places.values(), self.moves.values()):
             wall_place = (old_place[0] + wall[0], old_place[1] + wall[1])
             pawn_place = (old_place[0] + pawn[0], old_place[1] + pawn[1])
@@ -296,7 +321,7 @@ class GameState:
                 pawn_place = (opp[0] + pawn[0], opp[1] + pawn[1])
                 if self.check_valid_pawn(pawn_place) and self.is_place_free(wall_place):
                     moves.append(self.map_num(pawn_place))
-        return moves
+        return np.array(moves)
 
     def get_opp_location(self):
         if self.turn:
@@ -323,9 +348,6 @@ class GameState:
                 return (self.map_num((place[0], place[1])), self.map_num((place[0], place[1] - 2)))
 
     def check_valid_wall(self, place):
-        # place = self.map_alpha(place)
-        # if not place:
-        #     return False
         if self.turn and self.player_one_walls == 0:
             return False
         elif not self.turn and self.player_two_walls == 0:
@@ -392,64 +414,5 @@ class GameState:
 
     def parse_move(self, move):
         x, y = move[0].upper(), move[1].upper()
-        move = self.map_alpha((x, y))
+        move = (x, y)
         return move
-
-
-if __name__ == '__main__':
-    stateGame = GameState()
-    # while not stateGame.is_goal():
-    #     stateGame.player_stats()
-    #     stateGame.print_board()
-    #     print(f'Player: {stateGame.turn}')
-    #     print(f'Possible moves: {stateGame.possible_moves_pawn()}')
-    #     print(f'Possible walls: {stateGame.possible_moves_wall()}')
-    #     ipt = input("Pawn(1) or wall(2)?")
-    #     if ipt != "1" or ipt != "2":
-    #         while ipt != "1" and ipt != "2":
-    #             print("Must pick 1 or 2!")
-    #             ipt = input("Pawn(1) or wall(2)?")
-    #     if ipt == "1":
-    #         move = input("Move: ")
-    #         while not stateGame.move_pawn(stateGame.parse_move(move)):
-    #             move = input("Move: ")
-    #     elif ipt == "2":
-    #         move = input("Wall: ")
-    #         while not stateGame.place_wall(stateGame.parse_move(move)):
-    #             move = input("Wall: ")
-    #     clear_screen()
-
-    # stateGame.player_stats()
-    # stateGame.print_board()
-    # print(f'{stateGame.get_winner()} is the winner!')
-    walls = []
-    while not stateGame.is_goal():
-        stateGame.player_stats()
-        stateGame.print_board()
-        print(len(stateGame.possible_moves_wall()))
-        print(walls)
-        print(f'Player: {stateGame.turn}')
-        ipt, pawn, wall = random_move(
-            stateGame.possible_moves_pawn(), stateGame.possible_moves_wall())
-        if ipt == 1:
-            print("Move: ")
-            while True:
-                if not stateGame.move_pawn(stateGame.possible_moves_pawn()[pawn]):
-                    print("Move: ")
-                else:
-                    break
-        elif ipt == 2:
-            print("Wall: ")
-            while True:
-                wall_ = stateGame.possible_moves_wall()[wall]
-                if not stateGame.place_wall(wall_):
-                    print("Move: ")
-                else:
-                    walls.append(wall_)
-                    break
-        time.sleep(0.5)
-        clear_screen()
-
-    stateGame.player_stats()
-    stateGame.print_board()
-    print(f'{stateGame.get_winner()} is the winner!')

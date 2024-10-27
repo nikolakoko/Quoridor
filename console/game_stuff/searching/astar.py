@@ -66,7 +66,7 @@ def path_exists(state, start_pos, is_player_one):
 
         # If we've reached the goal row
         if current.position[0] == goal_row:
-            return True
+            return True, current.g_cost
 
         # Skip if we've already visited this position
         if current.position in visited:
