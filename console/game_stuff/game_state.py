@@ -4,8 +4,6 @@ from utils.stuff import BoardPieceStat
 from copy import copy
 from searching import astar
 import os
-from algorithms.random import random_move
-import time
 
 
 def clear_screen():
