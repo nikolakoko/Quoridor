@@ -320,12 +320,12 @@ class GameState:
                         moves.append(self.map_num((opp[0] + 2, opp[1])))
                     else:
                         moves.append(self.map_num((opp[0] - 2, opp[1])))
-                else:
-                    for wall, pawn in zip(self.wall_places.values(), self.moves.values()):
-                        wall_place = (opp[0] + wall[0], opp[1] + wall[1])
-                        pawn_place = (opp[0] + pawn[0], opp[1] + pawn[1])
-                        if self.check_valid_pawn(pawn_place) and self.is_place_free(wall_place):
-                            moves.append(self.map_num(pawn_place))
+            else:
+                for wall, pawn in zip(self.wall_places.values(), self.moves.values()):
+                    wall_place = (opp[0] + wall[0], opp[1] + wall[1])
+                    pawn_place = (opp[0] + pawn[0], opp[1] + pawn[1])
+                    if self.check_valid_pawn(pawn_place) and self.is_place_free(wall_place):
+                        moves.append(self.map_num(pawn_place))
         return moves
     
     def can_go_straight(self, place):
