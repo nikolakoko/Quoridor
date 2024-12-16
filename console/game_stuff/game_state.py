@@ -31,7 +31,6 @@ class GameState:
         if initialization:
             self.player_one_pos = (16, 8)
             self.player_two_pos = (0, 8)
-            # self.player_two_pos = (14, 8)
             self.board = np.zeros((289,), dtype=int)
             self.setup_board()
 
@@ -110,16 +109,16 @@ class GameState:
         for row in range(self.rows):
             if row % 2 == 0:
                 print(f'  {chr(ascii_capital)}  ', end="")
-                ascii_capital = ascii_capital + 2
+                ascii_capital += 2
             else:
                 print(Stuff.WALL_COLOR + chr(ascii_lower) +
                       Stuff.COLOR_RESET, end="")
-                ascii_lower = ascii_lower + 2
+                ascii_lower += 2
 
         ascii_capital = 65
         ascii_lower = 98
 
-        # Printing the letters for the columns and the grid\
+        # Printing the letters for the columns and the grid
 
         for col in range(self.cols):
             if col % 2 == 0:
@@ -127,11 +126,7 @@ class GameState:
                 ascii_capital = ascii_capital + 2
                 for place in range(self.cols):
                     id = self.get_id(col, place)
-                    # if self.board[id] == BoardPieceStat.FREE_PAWN:
-                    #     print(f'{col, place}', end="")
-                    if (col, place) in self.possible_moves_pawn():
-                        print(f'heree', end="")
-                    elif self.board[id] == BoardPieceStat.FREE_PAWN:
+                    if self.board[id] == BoardPieceStat.FREE_PAWN:
                         print(f'     ', end="")
                     elif self.board[id] == BoardPieceStat.FREE_WALL:
                         print(f'{player_positions}', end="")
@@ -249,8 +244,8 @@ class GameState:
             place = self.map_alpha(place)
         if self.check_valid_wall(place):
             self.history.append({
-                'player_one_pos': self.player_one_pos,
-                'player_two_pos': self.player_two_pos,
+                'player_one_walls': self.player_one_walls,
+                'player_two_walls': self.player_two_walls,
                 'board': copy(self.board),
                 'turn': self.turn
             })
@@ -263,14 +258,14 @@ class GameState:
                 self.turn = True
             return True
         else:
-            wall = ""
+            # wall = ""
             if self.get_wall_coords(place) is not None:
                 wall = self.get_wall_coords(place)
             print(f'The wall {wall} is not valid!')
             return False
 
     def undo(self):
-        if not self.history:
+        if len(self.history) == 0:
             print("No wall placements to undo.")
             return False
 
@@ -319,6 +314,7 @@ class GameState:
                 pawn_place = (opp[0] + pawn[0], opp[1] + pawn[1])
                 if self.check_valid_pawn(pawn_place) and self.is_place_free(wall_place):
                     moves.append(self.map_num(pawn_place))
+                    
         return np.array(moves)
 
     def get_opp_location(self):
@@ -394,12 +390,6 @@ class GameState:
             test_state, test_state.player_one_pos, True)
         player_two_can_reach = astar.path_exists(
             test_state, test_state.player_two_pos, False)
-        # if not player_one_can_reach:
-        #     print(
-        #         f'Player 1 cant reach destination because of the wall: {self.get_wall_coords(place)}')
-        # if not player_two_can_reach:
-        #     print(
-        #         f'Player 2 cant reach destination because of the wall: {self.get_wall_coords(place)}')
         return player_one_can_reach and player_two_can_reach
 
     def get_winner(self):
