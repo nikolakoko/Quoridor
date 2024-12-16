@@ -118,7 +118,7 @@ class GameState:
         ascii_capital = 65
         ascii_lower = 98
 
-        # Printing the letters for the columns and the grid
+        # Printing the letters for the columns and the grid\
 
         for col in range(self.cols):
             if col % 2 == 0:
@@ -258,7 +258,7 @@ class GameState:
                 self.turn = True
             return True
         else:
-            # wall = ""
+            wall = ""
             if self.get_wall_coords(place) is not None:
                 wall = self.get_wall_coords(place)
             print(f'The wall {wall} is not valid!')
@@ -293,7 +293,7 @@ class GameState:
                 if self.check_valid_wall((row, col)):
                     moves.append((row, col))
 
-        return np.array(moves)
+        return moves
 
     def possible_moves_pawn(self):
         if self.turn:
@@ -309,14 +309,39 @@ class GameState:
                 moves.append(self.map_num(pawn_place))
         if self.is_diagonal_or_jump():
             opp = self.get_opp_location()
-            for wall, pawn in zip(self.wall_places.values(), self.moves.values()):
-                wall_place = (opp[0] + wall[0], opp[1] + wall[1])
-                pawn_place = (opp[0] + pawn[0], opp[1] + pawn[1])
-                if self.check_valid_pawn(pawn_place) and self.is_place_free(wall_place):
-                    moves.append(self.map_num(pawn_place))
-                    
-        return np.array(moves)
-
+            if self.can_go_straight(opp):
+                if old_place[0] == opp[0]:
+                    if opp[1] > old_place[1]:
+                        moves.append(self.map_num((opp[0], opp[1] + 2)))
+                    else:
+                        moves.append(self.map_num((opp[0], opp[1] - 2)))
+                elif old_place[1] == opp[1]:
+                    if opp[0] > old_place[0]:
+                        moves.append(self.map_num((opp[0] + 2, opp[1])))
+                    else:
+                        moves.append(self.map_num((opp[0] - 2, opp[1])))
+                else:
+                    for wall, pawn in zip(self.wall_places.values(), self.moves.values()):
+                        wall_place = (opp[0] + wall[0], opp[1] + wall[1])
+                        pawn_place = (opp[0] + pawn[0], opp[1] + pawn[1])
+                        if self.check_valid_pawn(pawn_place) and self.is_place_free(wall_place):
+                            moves.append(self.map_num(pawn_place))
+        return moves
+    
+    def can_go_straight(self, place):
+        player = self.player_one_pos if self.turn else self.player_two_pos
+        if player[0] == place[0]:
+            if place[1] > player[1]:
+                check_for_wall = (place[0], place[1] + 1)
+            else:
+                check_for_wall = (place[0], place[1] - 1)
+        elif player[1] == place[1]:
+            if place[0] > player[0]:
+                check_for_wall = (place[0] + 1, place[1])
+            else:
+                check_for_wall = (place[0] - 1, place[1])
+        return self.is_place_free(check_for_wall)
+        
     def get_opp_location(self):
         if self.turn:
             return self.player_two_pos
