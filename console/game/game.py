@@ -30,6 +30,8 @@ class Game:
         return (self.number[x], self.number[y])
 
     def map_alpha(self, place):
+        if len(place) != 2: 
+            return False
         x, y = place[0].upper(), place[1].upper()
         if x not in self.alpa.keys() or y not in self.alpa.keys():
             return False
@@ -214,5 +216,6 @@ class Game:
 if __name__ == '__main__':
     game = Game()
     # game.random()
+    
     # game.player_v_player()
     game.other()
