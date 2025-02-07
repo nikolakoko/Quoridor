@@ -257,7 +257,6 @@ class GameState:
             return None
 
     def get_east_pos(self, include_state=True):
-
         if self.player_one:
             i, j = self.player_one_pos
             move_y = 2
@@ -283,7 +282,6 @@ class GameState:
             return None
 
     def get_jump_pos(self, include_state=True):
-
         if self.player_one:
             i, j = self.player_one_pos
             jump = -4
