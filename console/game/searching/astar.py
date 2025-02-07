@@ -5,7 +5,7 @@ from utils.stuff import BoardPieceStat
 
 class Node:
     def __init__(self, position, g_cost, h_cost, parent=None):
-        self.position = position
+        self.position = tuple(position)
         self.g_cost = g_cost  # Cost from start to current node
         self.h_cost = h_cost  # Estimated cost from current node to goal
         self.f_cost = g_cost + h_cost  # Total cost

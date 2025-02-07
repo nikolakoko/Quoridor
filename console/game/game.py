@@ -1,221 +1,250 @@
-import math
-import os
-import time
-from algorithms.expectimax import expectimax
-from algorithms.minimax import minimax
 from game_state import GameState
-
-
-def clear_screen():
-    # For Windows
-    if os.name == 'nt':
-        _ = os.system('cls')
-    # For macOS and Linux
-    else:
-        _ = os.system('clear')
+from time import time, sleep
+from utils.stuff import WallDirection, Color
+from algorithms.minimax import minimax
+from algorithms.expectimax import expectimax
+from algorithms.monte_carlo import SearchNode
+import math
 
 
 class Game:
     def __init__(self):
+
+        self.player_simulation_algorithms = ["minimax", "minimax"]
         self.game_state = GameState()
-        self.number = {0: "A", 1: "b", 2: "C", 3: "d", 4: "E", 5: "f", 6: "G", 7: "h",
-                       8: "I", 9: "j", 10: "K", 11: "l", 12: "M", 13: "n", 14: "O", 15: "p", 16: "Q"}
+        self.algorithms = ["minimax", "expectimax", "monte-carlo-tree-search"]
+        self.execution_times = []
         self.alpa = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5, "G": 6, "H": 7,
                      "I": 8, "J": 9, "K": 10, "L": 11, "M": 12, "N": 13, "O": 14, "P": 15, "Q": 16}
+        self.initialize()
 
-    def map_num(self, place):
-        x, y = int(place[0]), int(place[1])
-        if x not in self.number.keys() or y not in self.number:
-            return False
-        return (self.number[x], self.number[y])
+    def print_commands(self):
+        print(
+            "You can move your piece or place a wall by entering" + Color.CYAN + " xy " + Color.RESET + "where x is the row letter and y column letter")
+
+    def initialize(self):
+        Game.print_colored_output("### WELCOME TO QUORIDOR ###", Color.CYAN)
+        print("\n")
+        print("First the commands [they are case insensitive]: ")
+        self.print_commands()
+        print("{0:-<100}".format(""))
+
+        a = input("\nDo you want to play against a computer?[Y/n]: ")
+        if a == "Y" or a == "y":
+            self.game_state.is_simulation = False
+
+            print("Choose the second player algorithm: ")
+            print("1. minimax")
+            print("2. expectimax")
+            print("3. monte carlo tree search")
+            while True:
+                x = input("Choose: ")
+                if not x.isdigit() and x != "x" and x != "X":
+                    Game.print_colored_output("Illegal input!", Color.RED)
+                elif x == "x" or x == "X":
+                    exit(0)
+                else:
+                    if 0 <= int(x) - 1 < len(self.algorithms):
+                        self.player_simulation_algorithms[1] = self.algorithms[int(
+                            x) - 1]
+                        Game.print_colored_output("Chosen algorithm for player 2 is {0:30}".format(
+                            self.player_simulation_algorithms[1].upper()), Color.CYAN)
+                        break
+                    else:
+                        Game.print_colored_output("Illegal input!", Color.RED)
+        else:
+            self.game_state.is_simulation = True
+            print("Choose the players algorithms[first_player, second_player]")
+            print("1. minimax")
+            print("2. expectimax")
+            print("3. monte carlo tree search")
+            while True:
+                x = input("Choose: ")
+                if not len(x.split(",")) == 2 and x != "x" and x != "X":
+                    Game.print_colored_output("Illegal input!", Color.RED)
+                elif x == "x" or x == "X":
+                    exit(0)
+                else:
+                    one, two = x.split(",")
+                    if 0 <= int(one) - 1 < len(self.algorithms) and 0 <= int(two) - 1 < len(self.algorithms):
+                        self.player_simulation_algorithms[0] = self.algorithms[int(
+                            one) - 1]
+                        self.player_simulation_algorithms[1] = self.algorithms[int(
+                            two) - 1]
+                        Game.print_colored_output("Chosen algorithm for player 1 is {0:30}".format(
+                            self.player_simulation_algorithms[0].upper()), Color.CYAN)
+                        Game.print_colored_output("Chosen algorithm for player 2 is {0:30}".format(
+                            self.player_simulation_algorithms[1].upper()), Color.CYAN)
+                        break
+                    else:
+                        Game.print_colored_output("Illegal input!", Color.RED)
+
+    def choose_action(self, d):
+        if len(d.keys()) == 0:
+            return None
+        k = max(d)
+        winner = d[k]
+        action = winner[1]
+
+        if len(action) == 2:
+            self.game_state.move_piece(action)
+        else:
+            self.game_state.place_wall(action)
+        return action
+
+    def minimax_agent(self, player_one_minimax):
+        d = {}
+        for child in self.game_state.all_possible_moves(player_one_minimax):
+            value = minimax(child[0], 3, -math.inf, math.inf, False, player_one_minimax)
+            d[value] = child
+        return self.choose_action(d)
+
+    def expectimax_agent(self, player_one_maximizer):
+        d = {}
+        for child in self.game_state.all_possible_moves(player_one_maximizer):
+            value = expectimax(child[0], 2, False, player_one_maximizer)
+            d[value] = child
+        return self.choose_action(d)
 
     def map_alpha(self, place):
-        if len(place) != 2: 
+        if len(place) != 2:
             return False
         x, y = place[0].upper(), place[1].upper()
         if x not in self.alpa.keys() or y not in self.alpa.keys():
             return False
         return (self.alpa[x], self.alpa[y])
 
-    def random(self):
-        from algorithms.random import random_move
-        walls = []
-        while not self.game_state.is_goal():
-            self.game_state.player_stats()
-            self.game_state.print_board()
-            print(f'Player: {self.game_state.turn}')
-            ipt, pawn, wall = random_move(
-                self.game_state.possible_moves_pawn(), self.game_state.possible_moves_wall())
-            if ipt == 1:
-                print("Move: ")
-                while True:
-                    if not self.game_state.move_pawn(self.game_state.possible_moves_pawn()[pawn]):
-                        print("Move: ")
-                    else:
-                        break
-            elif ipt == 2:
-                print("Wall: ")
-                while True:
-                    wall_ = self.game_state.possible_moves_wall()[wall]
-                    if not self.game_state.place_wall(wall_):
-                        print("Move: ")
-                    else:
-                        walls.append(wall_)
-                        break
-            # time.sleep(0.5)
-            clear_screen()
+    def get_wall_direction(self, place):
+        if place[0] % 2 == 0 and place[1] % 2 == 1:
+            if place[0] < 15:
+                return WallDirection.SOUTH
+            else:
+                return WallDirection.NORTH
+        elif place[0] % 2 == 1 and place[1] % 2 == 0:
+            if place[1] < 15:
+                return WallDirection.EAST
+            else:
+                return WallDirection.WEST
 
-        self.game_state.player_stats()
-        self.game_state.print_board()
-        print(f'{self.game_state.get_winner()} is the winner!')
-
-    def player_v_player(self):
-        stateGame = GameState()
-        while not stateGame.is_goal():
-            stateGame.player_stats()
-            stateGame.print_board()
-            print(f'Player: {stateGame.turn}')
-            print(f'Possible moves: {stateGame.possible_moves_pawn()}')
-            print(f'Possible walls: {stateGame.possible_moves_wall()}')
+    def player_one_user(self):
+        while True:
             ipt = input("Pawn(1) or wall(2)?")
             if ipt != "1" or ipt != "2":
                 while ipt != "1" and ipt != "2":
                     print("Must pick 1 or 2!")
                     ipt = input("Pawn(1) or wall(2)?")
+
             if ipt == "1":
-                move = input("Move: ")
-                move = self.map_alpha(move)
-                while type(move) != tuple or not stateGame.move_pawn(move):
-                    move = input("Move: ")
-                    move = self.map_alpha(move)
-            elif ipt == "2":
-                move = input("Wall: ")
-                move = self.map_alpha(move)
-                while type(move) != tuple or not stateGame.place_wall(move):
-                    move = input("Wall: ")
-                    move = self.map_alpha(move)
-            clear_screen()
-
-        stateGame.player_stats()
-        stateGame.print_board()
-        print(f'{stateGame.get_winner()} is the winner!')
-
-    def other(self):
-        # if alg == 1:
-
-        # elif alg == 2:
-        #     from algorithms.monte_carlo_tree_search import get_best_move
-        # from algorithms.expectimax import get_best_move
-
-        stateGame = GameState()
-        ans = input("Do you want to play? (y/n)")
-        while ans != "y" and ans != "n":
-            ans = input("Do you want to play? (y/n)")
-        if ans == "y":
-            human_turn = True
-            ans = input("Choose player: (1/2)")
-            while ans != "1" and ans != "2":
-                ans = input("Choose player: (1/2)")
-            if ans == "2":
-                human_turn = False
-            while not stateGame.is_goal():
-                if human_turn:
-                    stateGame.player_stats()
-                    stateGame.print_board()
-                    ipt = input("Pawn(1) or wall(2)?")
-                    if ipt != "1" or ipt != "2":
-                        while ipt != "1" and ipt != "2":
-                            print("Must pick 1 or 2!")
-                            ipt = input("Pawn(1) or wall(2)?")
-                    if ipt == "1":
-                        print(f'Possible moves: {
-                              stateGame.possible_moves_pawn()}')
-                        move = input("Move: ")
-                        while not stateGame.move_pawn(self.map_alpha(move)):
-                            move = input("Move: ")
-                    elif ipt == "2":
-                        print(f'Possible walls: {
-                              stateGame.possible_moves_wall()}')
-                        move = input("Wall: ")
-                        while not stateGame.place_wall(self.map_alpha(move)):
-                            move = input("Wall: ")
-
-                    human_turn = False
-                    clear_screen()
-
+                value = input("Enter move: ")
+                available_moves = self.game_state.get_available_moves(False)
+                move = self.map_alpha(value)
+                if move not in available_moves:
+                    Game.print_colored_output("Illegal move!", Color.RED)
                 else:
-                    stateGame.player_stats()
-                    stateGame.print_board()
-                    print("\nAI is thinking...")
-                    move = self.minimax_agent(stateGame.turn)
+                    self.game_state.move_piece(move)
+                    break
+            elif ipt == "2":
+                value = input("Enter wall: ")
+                move = self.map_alpha(value)
+                direction = self.get_wall_direction(move)
+                print(move, direction)
+                is_placement_valid, coords = self.game_state.check_wall_placement(move,
+                                                                                  direction)
+                if not is_placement_valid:
+                    Game.print_colored_output(
+                        "Illegal wall placement!", Color.RED)
+                else:
+                    self.game_state.place_wall(coords)
+                    break
+            else:
+                Game.print_colored_output("Illegal command!", Color.RED)
 
-                    if move[0] % 2 == 0:
-                        print(f"AI moves pawn to: {move}")
-                        stateGame.move_pawn(move)
-                    else:
-                        wall_coords = stateGame.get_wall_coords(move)
-                        print(f"AI places wall at: {wall_coords}")
-                        stateGame.place_wall(move)
-
-                    human_turn = True
-                    time.sleep(0.5)
-                    clear_screen()
-
+    def player_simulation(self, player_number):
+        if player_number == 1:
+            index = 0
+            maximizer = True
         else:
-            while not stateGame.is_goal():
-                stateGame.player_stats()
-                stateGame.print_board()
-                print(f'Player: {stateGame.turn}')
-                # Get AI move
-                move = minimax(stateGame, depth=2)
+            index = 1
+            maximizer = False
+        t1 = time()
+        print("Player {0:1} is thinking...\n".format(player_number))
+        action = (0, 0)
+        if self.player_simulation_algorithms[index] == "minimax":
+            action = self.minimax_agent(maximizer)
+        elif self.player_simulation_algorithms[index] == "expectimax":
+            action = self.expectimax_agent(maximizer)
+        elif self.player_simulation_algorithms[index] == "monte-carlo-tree-search":
+            start = SearchNode(state=self.game_state,
+                               is_maximizing=maximizer)
+            selected_node = start.best_action()
+            action = selected_node.parent_action
+            self.game_state.execute_action(action, False)
 
-                if move[0] % 2 == 0:  # Pawn move
-                    print(f"AI moves pawn to: {move}")
-                    stateGame.move_pawn(move)
-                else:  # Wall placement
-                    print(f"AI places wall at: {move}")
-                    stateGame.place_wall(move)
+        if action is not None:
+            if len(action) == 2:
+                self.print_colored_output(
+                    "Player {0:1} has moved his piece.".format(player_number), Color.CYAN)
+            else:
+                self.print_colored_output(
+                    "Player {0:1} has placed a wall.".format(player_number), Color.CYAN)
+            t2 = time()
+            self.execution_times.append(t2 - t1)
+            self.print_colored_output(
+                "It took him " + str(round(t2 - t1, 2)) + " seconds.", Color.CYAN)
+            # sleep(1.5)
+            return True
+        else:
+            self.print_colored_output(
+                "Player {0:1} has no moves left.".format(player_number), Color.CYAN)
+            return False
 
-                time.sleep(0.5)  # To make the game visible
-                clear_screen()
+    def check_end_state(self):
+        if self.game_state.is_goal_state():
+            winner = self.game_state.get_winner()
+            if not self.game_state.is_simulation:
+                if winner == "P1":
+                    self.print_colored_output("You won!", Color.GREEN)
+                else:
+                    self.print_colored_output("You lost!", Color.RED)
+            else:
+                self.print_colored_output(
+                    "The winner is " + winner + ".", Color.CYAN)
+            return True
+        else:
+            return False
 
-        stateGame.player_stats()
-        stateGame.print_board()
-        print(f'{stateGame.get_winner()} is the winner!')
+    def play(self):
+        while True:
+            print()
+            self.game_state.print_game_stats()
+            print("\n")
+            self.game_state.print_board()
+            print()
 
-    def choose_action(self, moves):
-        if len(moves.keys()) == 0:
-            return None
-        k = max(moves)
-        winner = k
-        action = winner[0]
+            if self.check_end_state():
+                print("Execution average: ", sum(
+                    self.execution_times) / len(self.execution_times))
+                break
 
-        return action
+            if self.game_state.player_one:
+                if not self.game_state.is_simulation:
+                    self.player_one_user()
+                else:
+                    res = self.player_simulation(1)
+                    sleep(1.5)
+                    if not res:
+                        break
+            else:
+                res = self.player_simulation(2)
+                if not res:
+                    break
 
-    def minimax_agent(self, turn):
-        moves = {}
-        for move in self.game_state.all_possible_moves(True):
-            value = minimax(move[1], 3, -math.inf, math.inf, maximizing_player=False,
-                            turn=turn)
+            self.game_state.player_one = not self.game_state.player_one
 
-            moves[move] = value
-        return self.choose_action(moves)
-
-    def expectimax_agent(self):
-        moves = {}
-        for move in self.game_state.all_possible_moves(True):
-            value = expectimax(move[1], 2, False, maximizing_player=False)
-            moves[value] = move
-        return self.choose_action(moves)
-
-    # TODO implement Monte Carlo Tree Search
-    def monte_carlo_agent(self):
-        pass
-
+    @staticmethod
+    def print_colored_output(text, color):
+        print(color + text + Color.RESET)
 
 if __name__ == '__main__':
-    game = Game()
-    # game.random()
-    
-    # game.player_v_player()
-    game.other()
+    g = Game()
+    g.play()
