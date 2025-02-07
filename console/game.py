@@ -23,9 +23,8 @@ class Game:
             "You can move your piece or place a wall by entering" + Color.CYAN + " xy " + Color.RESET + "where x is the row letter and y column letter")
 
     def initialize(self):
-        Game.print_colored_output("### WELCOME TO QUORIDOR ###", Color.CYAN)
+        Game.print_colored_output("WELCOME TO QUORIDOR!", Color.CYAN)
         print("\n")
-        print("First the commands [they are case insensitive]: ")
         self.print_commands()
         print("{0:-<100}".format(""))
 
@@ -34,9 +33,9 @@ class Game:
             self.game_state.is_simulation = False
 
             print("Choose the second player algorithm: ")
-            print("1. minimax")
-            print("2. expectimax")
-            print("3. monte carlo tree search")
+            print("1. Minimax")
+            print("2. Expectimax")
+            print("3. Monte Carlo Tree Search")
             while True:
                 x = input("Choose: ")
                 if not x.isdigit() and x != "x" and x != "X":
@@ -54,10 +53,10 @@ class Game:
                         Game.print_colored_output("Illegal input!", Color.RED)
         else:
             self.game_state.is_simulation = True
-            print("Choose the players algorithms[first_player, second_player]")
-            print("1. minimax")
-            print("2. expectimax")
-            print("3. monte carlo tree search")
+            print("Choose the players algorithms [Player 1, Player 2]")
+            print("1. Minimax")
+            print("2. Expectimax")
+            print("3. Monte Carlo Tree Search")
             while True:
                 x = input("Choose: ")
                 if not len(x.split(",")) == 2 and x != "x" and x != "X":
