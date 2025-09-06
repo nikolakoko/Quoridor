@@ -18,8 +18,7 @@ class SearchNode:
         self._untried_actions = self.untried_actions()
 
     def untried_actions(self):
-        self._untried_actions = self.state.all_possible_moves(player_one_maximizer=self.is_maximizing,
-                                                                include_state=True)  # ovdje vidi za ovaj bool
+        self._untried_actions = self.state.all_possible_moves(player_one_maximizer=self.is_maximizing, include_state=True)  # check the bool here
         return self._untried_actions
 
     def q(self):
@@ -43,8 +42,7 @@ class SearchNode:
     def rollout(self):
         current_rollout_state = self.state
         while not current_rollout_state.is_goal_state():
-            child_states = current_rollout_state.all_possible_moves(player_one_maximizer=self.is_maximizing,
-                                                                      include_state=True)
+            child_states = current_rollout_state.all_possible_moves(player_one_maximizer=self.is_maximizing, include_state=True)
             if len(child_states) == 0:
                 return current_rollout_state.game_result(False)
             current_rollout_state = self.rollout_policy(child_states)[0]

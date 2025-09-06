@@ -6,7 +6,7 @@ from utils.stuff import BoardPieceStat
 class Node:
     def __init__(self, position, g_cost, h_cost, parent=None):
         self.position = tuple(position)
-        self.g_cost = g_cost  # Cost from start to current node
+        self.g_cost = g_cost  # Cost from start to the current node
         self.h_cost = h_cost  # Estimated cost from current node to goal
         self.f_cost = g_cost + h_cost  # Total cost
         self.parent = parent
@@ -37,7 +37,7 @@ def get_neighbors(state, position) -> List[Tuple[int, int]]:
     }
 
     for move in possible_moves:
-        # Check if move is within board boundaries
+        # Check if the move is within board boundaries
         if 0 <= move[0] <= 16 and 0 <= move[1] <= 16:
             # Check if there's no wall blocking the path
             wall_pos = wall_offsets[move]

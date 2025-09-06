@@ -4,6 +4,7 @@ from copy import copy
 from searching import astar
 import threading
 
+
 class GameState:
     def __init__(self, is_simulation=False, initialize=True):
         self.is_simulation = is_simulation
@@ -112,10 +113,9 @@ class GameState:
                         else:
                             print(f'{wall_positions[:5]}', end="")
                     else:
-                        self.board[id] == None
+                        self.board[id] is None
 
         print()
-
 
     def is_piece_occupied(self, i, j):
         index = i * self.cols + j
@@ -440,7 +440,7 @@ class GameState:
                 second_piece_y = starting_pos[1] + 2
                 third_piece_x = starting_pos[0]
                 third_piece_y = starting_pos[1] + 1
-        else:  
+        else:
             if starting_pos[0] % 2 == 0:
                 return False, np.array([starting_pos[0], starting_pos[1], -1, -1, -1, -1])
             else:

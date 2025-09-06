@@ -4,12 +4,14 @@ class Stuff:
     WALL_COLOR = "\u001b[33m"
     COLOR_RESET = "\u001b[0m"
 
+
 class BoardPieceStat:
     OCCUPIED_BY_PLAYER_1 = 1
     OCCUPIED_BY_PLAYER_2 = 2
     FREE_PLAYER = 3
     FREE_WALL = 4
     OCCUPIED_WALL = 5
+
 
 class Color:
     BLACK = "\u001b[30m"
@@ -23,6 +25,7 @@ class Color:
     RESET = "\u001b[0m"
     BROWN = "\033[0;33m"
     BACKGROUND_YELLOW = "\u001b[43m"
+
 
 class WallDirection:
     NORTH = 0,

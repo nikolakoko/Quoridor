@@ -111,7 +111,7 @@ class Game:
         x, y = place[0].upper(), place[1].upper()
         if x not in self.alpa.keys() or y not in self.alpa.keys():
             return False
-        return (self.alpa[x], self.alpa[y])
+        return self.alpa[x], self.alpa[y]
 
     def get_wall_direction(self, place):
         if place[0] % 2 == 0 and place[1] % 2 == 1:
@@ -124,6 +124,7 @@ class Game:
                 return WallDirection.EAST
             else:
                 return WallDirection.WEST
+        return None
 
     def player_one_user(self):
         while True:
@@ -243,6 +244,7 @@ class Game:
     @staticmethod
     def print_colored_output(text, color):
         print(color + text + Color.RESET)
+
 
 if __name__ == '__main__':
     g = Game()

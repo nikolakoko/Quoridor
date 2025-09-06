@@ -1,6 +1,7 @@
 from game_state import GameState
 from searching import astar
 
+
 def evaluate_position(game_state: GameState, is_maximizing, is_expectimax=False):
     player_one_distance = game_state.player_one_pos[0] // 2
     player_two_distance = (16 - game_state.player_two_pos[0]) // 2
@@ -28,7 +29,7 @@ def evaluate_position(game_state: GameState, is_maximizing, is_expectimax=False)
         result -= round(50 / num_1, 2)
 
         result += (game_state.player_one_walls -
-                   game_state.player_two_walls) 
+                   game_state.player_two_walls)
         if game_state.player_one_pos[0] == 0:
             result += 100
         if player_path_len == 0 and game_state.player_one_pos[0] != 0:
