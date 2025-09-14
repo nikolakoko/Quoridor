@@ -101,7 +101,129 @@ class GameState:
         new_state.winner = self.winner
         return new_state
 
+    def get_opponent(self, player: Player) -> Player:
+        return Player.TWO if player == Player.ONE else Player.ONE
+
+    def is_within_bounds(self, row: int, col: int) -> bool:
+        return 0 <= row < BOARD_SIZE and 0 <= col < BOARD_SIZE
+
+    def is_wall_between_coords(self, walls_list: List[Wall], row1: int, col1: int, row2: int, col2: int) -> bool:
+        """
+        Generic check whether any wall in walls_list blocks movement between (row1,col1) and (row2,col2).
+        Works for both one-step and two-step (jump) checks — you call with the two squares you're checking.
+        """
+        # movement should be orthogonal by design here
+        for wall in walls_list:
+            if wall.orientation == WallOrientation.HORIZONTAL:
+                # Horizontal wall blocks vertical movement
+                if col1 == col2 and abs(row1 - row2) == 1:
+                    wall_row = max(row1, row2)
+                    if wall.row == wall_row and wall.col <= col1 <= wall.col + 1:
+                        return True
+            else:  # Vertical wall
+                # Vertical wall blocks horizontal movement
+                if row1 == row2 and abs(col1 - col2) == 1:
+                    wall_col = max(col1, col2)
+                    if wall.col == wall_col and wall.row <= row1 <= wall.row + 1:
+                        return True
+        return False
+
+    def get_pawn_neighbors(self, player: Player, walls_list: Optional[List[Wall]] = None) -> List[tuple]:
+        """
+        Returns list of reachable (row,col) positions in one legal pawn move,
+        including:
+            - normal one-square orthogonal moves,
+            - jumps over an adjacent opponent (when allowed),
+            - diagonal moves around an adjacent opponent (only when face-to-face and jump blocked).
+        This respects given walls_list (or self.walls if None).
+        """
+        if walls_list is None:
+            walls_list = self.walls
+
+        cur_row, cur_col = self.player_positions[player]
+        opp = self.get_opponent(player)
+        opp_row, opp_col = self.player_positions[opp]
+
+        neighbors = []
+
+        # Four orthogonal directions
+        dirs = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        for dr, dc in dirs:
+            adj_row = cur_row + dr
+            adj_col = cur_col + dc
+
+            # Check bounds for adjacent square
+            if not self.is_within_bounds(adj_row, adj_col):
+                continue
+
+            # Check wall between current and adjacent
+            if self.is_wall_between_coords(walls_list, cur_row, cur_col, adj_row, adj_col):
+                continue
+
+            # If adjacent square is free (not occupied by opponent), normal move allowed
+            if [adj_row, adj_col] != [opp_row, opp_col]:
+                neighbors.append((adj_row, adj_col))
+            else:
+                # Adjacent contains opponent - attempt to jump over
+                jump_row = adj_row + dr
+                jump_col = adj_col + dc
+
+                can_jump = False
+                # jump must be within bounds and must not be blocked by a wall between adj and jump
+                if self.is_within_bounds(jump_row, jump_col):
+                    if not self.is_wall_between_coords(walls_list, adj_row, adj_col, jump_row, jump_col):
+                        # also ensure jump square not occupied (by current or etc.)
+                        if [jump_row, jump_col] != [cur_row, cur_col]:
+                            can_jump = True
+
+                if can_jump:
+                    neighbors.append((jump_row, jump_col))
+                else:
+                    # Jump is blocked (wall or out of bounds) => diagonal moves allowed (two possibilities)
+                    # Determine perpendicular directions
+                    # If moving vertically (dr != 0), perpendiculars are left/right (0, -1) and (0, 1)
+                    # If moving horizontally (dc != 0), perpendiculars are up/down (-1, 0) and (1, 0)
+                    if dr != 0:
+                        perps = [(0, -1), (0, 1)]
+                    else:
+                        perps = [(-1, 0), (1, 0)]
+
+                    for pdr, pdc in perps:
+                        diag_row = adj_row + pdr
+                        diag_col = adj_col + pdc
+
+                        # diag must be in bounds
+                        if not self.is_within_bounds(diag_row, diag_col):
+                            continue
+
+                        # There must not be a wall between opponent and diag (the diagonal step around)
+                        if self.is_wall_between_coords(walls_list, adj_row, adj_col, diag_row, diag_col):
+                            continue
+
+                        # Also ensure there is no wall blocking current -> diag in the natural path:
+                        # This check is conservative: ensure there's no wall between current and (diag) via either adjacent or direct edge.
+                        # Check wall between current and adj already passed. Check wall between current and diag if they are adjacent
+                        # Typically current and diag are not orthogonally adjacent, but some walls can still block conceptually.
+                        # We'll be conservative: require no wall between current and adj (checked) and no wall between opp and diag (checked).
+                        # Also ensure diag not occupied
+                        if [diag_row, diag_col] != [cur_row, cur_col] and [diag_row, diag_col] != [opp_row, opp_col]:
+                            neighbors.append((diag_row, diag_col))
+
+        # Remove duplicates (if any)
+        unique_neighbors = []
+        seen = set()
+        for r, c in neighbors:
+            if (r, c) not in seen:
+                unique_neighbors.append((r, c))
+                seen.add((r, c))
+
+        return unique_neighbors
+
     def is_valid_move(self, player: Player, new_row: int, new_col: int) -> bool:
+        """
+        Validate a simple single-square orthogonal move only (used by some parts).
+        For more advanced moves (jump/diagonal) use get_pawn_neighbors or make_move which checks neighbors.
+        """
         # Check bounds
         if not (0 <= new_row < BOARD_SIZE and 0 <= new_col < BOARD_SIZE):
             return False
@@ -116,31 +238,15 @@ class GameState:
             return False
 
         # Check if there's a wall blocking the move
-        if self.is_wall_between(current_pos[0], current_pos[1], new_row, new_col):
+        if self.is_wall_between_coords(self.walls, current_pos[0], current_pos[1], new_row, new_col):
             return False
 
         # Check if another player is in that position
-        other_player = Player.TWO if player == Player.ONE else Player.ONE
+        other_player = self.get_opponent(player)
         if self.player_positions[other_player] == [new_row, new_col]:
             return False
 
         return True
-
-    def is_wall_between(self, row1: int, col1: int, row2: int, col2: int) -> bool:
-        for wall in self.walls:
-            if wall.orientation == WallOrientation.HORIZONTAL:
-                # Horizontal wall blocks vertical movement
-                if col1 == col2 and abs(row1 - row2) == 1:
-                    wall_row = max(row1, row2)
-                    if wall.row == wall_row and wall.col <= col1 <= wall.col + 1:
-                        return True
-            else:  # Vertical wall
-                # Vertical wall blocks horizontal movement
-                if row1 == row2 and abs(col1 - col2) == 1:
-                    wall_col = max(col1, col2)
-                    if wall.col == wall_col and wall.row <= row1 <= wall.row + 1:
-                        return True
-        return False
 
     def is_valid_wall_placement(self, wall: Wall) -> bool:
         # Check bounds
@@ -179,9 +285,9 @@ class GameState:
             return not (wall1.row + 1 < wall2.row or wall2.row + 1 < wall1.row)
 
     def path_exists_for_player(self, player: Player, walls_list: List[Wall]) -> bool:
-        """Check if a player can reach their goal using A* pathfinding"""
+        """Check if a player can reach their goal using A* pathfinding, considering jumps/diagonals"""
         start_pos = self.player_positions[player]
-        goal_row = 0 if player == Player.ONE else 8
+        goal_row = 0 if player == Player.ONE else BOARD_SIZE - 1
 
         visited = set()
         open_list = []
@@ -198,42 +304,29 @@ class GameState:
             if row == goal_row:
                 return True
 
-            # Try all four directions
-            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                new_row, new_col = row + dr, col + dc
+            # Expand neighbors using pawn movement rules (including jumps/diagonals)
+            # We must temporarily pretend other player's position is fixed (it is)
+            # Use the current GameState's positions for opponent
+            # But note: since we are checking if a path exists, we must allow moves past the opponent using jumps/diagonals.
+            # Create temporary GameState-like check: use get_pawn_neighbors but with manual position values:
+            # For simplicity, we'll temporarily set self.player_positions[player] to (row,col), run get_pawn_neighbors with walls_list,
+            # but we must not mutate self permanently.
+            original_pos = self.player_positions[player]
+            self.player_positions[player] = [row, col]
+            neighbors = self.get_pawn_neighbors(player, walls_list)
+            self.player_positions[player] = original_pos
 
-                # Check bounds
-                if not (0 <= new_row < BOARD_SIZE and 0 <= new_col < BOARD_SIZE):
-                    continue
-
-                # Check if the wall blocks this move
-                wall_blocked = False
-                for wall in walls_list:
-                    if wall.orientation == WallOrientation.HORIZONTAL:
-                        # Horizontal wall blocks vertical movement
-                        if dc == 0 and abs(dr) == 1:
-                            wall_row = max(row, new_row)
-                            if wall.row == wall_row and wall.col <= col <= wall.col + 1:
-                                wall_blocked = True
-                                break
-                    else:  # Vertical wall
-                        # Vertical wall blocks horizontal movement
-                        if dr == 0 and abs(dc) == 1:
-                            wall_col = max(col, new_col)
-                            if wall.col == wall_col and wall.row <= row <= wall.row + 1:
-                                wall_blocked = True
-                                break
-
-                if not wall_blocked and (new_row, new_col) not in visited:
+            for new_row, new_col in neighbors:
+                if (new_row, new_col) not in visited:
                     heuristic = abs(new_row - goal_row)
                     heappush(open_list, (cost + 1 + heuristic, new_row, new_col, cost + 1))
 
         return False
 
     def get_shortest_path_length(self, player: Player) -> int:
-        """Get the shortest path length to goal for heuristic evaluation"""
+        """Get the shortest path length to goal for heuristic evaluation (BFS/A* with neighbors including jumps/diagonals)"""
         start_pos = self.player_positions[player]
-        goal_row = 0 if player == Player.ONE else 8
+        goal_row = 0 if player == Player.ONE else BOARD_SIZE - 1
 
         visited = set()
         open_list = []
@@ -249,45 +342,29 @@ class GameState:
             if row == goal_row:
                 return cost
 
-            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                new_row, new_col = row + dr, col + dc
+            original_pos = self.player_positions[player]
+            self.player_positions[player] = [row, col]
+            neighbors = self.get_pawn_neighbors(player, self.walls)
+            self.player_positions[player] = original_pos
 
-                if not (0 <= new_row < BOARD_SIZE and 0 <= new_col < BOARD_SIZE):
-                    continue
-
-                wall_blocked = False
-                for wall in self.walls:
-                    if wall.orientation == WallOrientation.HORIZONTAL:
-                        if dc == 0 and abs(dr) == 1:
-                            wall_row = max(row, new_row)
-                            if wall.row == wall_row and wall.col <= col <= wall.col + 1:
-                                wall_blocked = True
-                                break
-                    else:
-                        if dr == 0 and abs(dc) == 1:
-                            wall_col = max(col, new_col)
-                            if wall.col == wall_col and wall.row <= row <= wall.row + 1:
-                                wall_blocked = True
-                                break
-
-                if not wall_blocked and (new_row, new_col) not in visited:
+            for new_row, new_col in neighbors:
+                if (new_row, new_col) not in visited:
                     heuristic = abs(new_row - goal_row)
                     heappush(open_list, (cost + 1 + heuristic, new_row, new_col, cost + 1))
 
         return 999  # No path found
 
     def get_all_possible_moves(self, player: Player) -> List['GameState']:
-        """Get all possible game states after one move"""
+        """Get all possible game states after one move (pawn moves include jumps/diagonals)"""
         moves = []
 
-        # Try all possible pawn moves
-        current_pos = self.player_positions[player]
-        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            new_row, new_col = current_pos[0] + dr, current_pos[1] + dc
-            if self.is_valid_move(player, new_row, new_col):
-                new_state = self.copy()
-                new_state.make_move(player, new_row, new_col)
-                moves.append(new_state)
+        # Pawn moves (including jumps and diagonal when applicable)
+        pawn_moves = self.get_pawn_neighbors(player, self.walls)
+        for new_row, new_col in pawn_moves:
+            new_state = self.copy()
+            new_state.player_positions[player] = [new_row, new_col]
+            new_state.check_win_condition()
+            moves.append(new_state)
 
         # Try all possible wall placements
         if self.walls_remaining[player] > 0:
@@ -325,7 +402,12 @@ class GameState:
             return score
 
     def make_move(self, player: Player, new_row: int, new_col: int):
-        if self.is_valid_move(player, new_row, new_col):
+        """
+        Make a move if it's legal. Legal moves are determined by get_pawn_neighbors (includes normal moves,
+        jumps, diagonals).
+        """
+        valid = self.get_pawn_neighbors(player, self.walls)
+        if (new_row, new_col) in valid:
             self.player_positions[player] = [new_row, new_col]
             self.check_win_condition()
             return True
@@ -345,8 +427,8 @@ class GameState:
             self.game_over = True
             self.winner = Player.ONE
 
-        # Player TWO wins by reaching row 8
-        elif self.player_positions[Player.TWO][0] == 8:
+        # Player TWO wins by reaching last row
+        elif self.player_positions[Player.TWO][0] == BOARD_SIZE - 1:
             self.game_over = True
             self.winner = Player.TWO
 
@@ -802,6 +884,14 @@ class QuoridorGame:
                 if self.game_mode == GameMode.PVP or self.game_state.current_player == Player.ONE:
                     self.handle_player_movement(event.key)
 
+            # Diagonal special moves (J = left diag, K = right diag) - only allowed in face-to-face scenario
+            elif event.key == pygame.K_j:
+                if self.game_mode == GameMode.PVP or self.game_state.current_player == Player.ONE:
+                    self.handle_diagonal_move(left=True)
+            elif event.key == pygame.K_k:
+                if self.game_mode == GameMode.PVP or self.game_state.current_player == Player.ONE:
+                    self.handle_diagonal_move(left=False)
+
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # Left click
                 # Don't handle wall placement if clicking on the back button
@@ -829,7 +919,106 @@ class QuoridorGame:
         elif key == pygame.K_d:
             new_col += 1
 
+        # If the chosen one-step target equals the opponent's location, attempt jump (or diagonal if implemented via J/K)
+        opponent = self.game_state.get_opponent(self.game_state.current_player)
+        opp_pos = self.game_state.player_positions[opponent]
+        if [new_row, new_col] == opp_pos:
+            # Try to jump automatically (if possible)
+            dr = new_row - current_pos[0]
+            dc = new_col - current_pos[1]
+            jump_row = new_row + dr
+            jump_col = new_col + dc
+            can_jump = False
+            if 0 <= jump_row < BOARD_SIZE and 0 <= jump_col < BOARD_SIZE:
+                if not self.game_state.is_wall_between_coords(self.game_state.walls, new_row, new_col, jump_row, jump_col):
+                    # ensure landing square isn't occupied
+                    if self.game_state.player_positions[opponent] != [jump_row, jump_col] and self.game_state.player_positions[self.game_state.current_player] != [jump_row, jump_col]:
+                        can_jump = True
+
+            if can_jump:
+                if self.game_state.make_move(self.game_state.current_player, jump_row, jump_col):
+                    if not self.game_state.game_over:
+                        self.game_state.switch_player()
+
+                        # If it's now AI's turn, make AI move (non-blocking)
+                        if (self.game_mode == GameMode.PVA and
+                                self.game_state.current_player == Player.TWO):
+                            self.make_ai_move()
+                return
+            else:
+                # Jump blocked; do nothing here — diagonal moves are activated only by J/K as requested
+                return
+
+        # Normal one-square move
         if self.game_state.make_move(self.game_state.current_player, new_row, new_col):
+            if not self.game_state.game_over:
+                self.game_state.switch_player()
+
+                # If it's now AI's turn, make AI move (non-blocking)
+                if (self.game_mode == GameMode.PVA and
+                        self.game_state.current_player == Player.TWO):
+                    self.make_ai_move()
+
+    def handle_diagonal_move(self, left: bool):
+        """
+        Attempt a diagonal move when face-to-face and straight jump is blocked.
+        left=True means diagonal to the left of the opponent (J key), left=False means right (K key).
+        This is only allowed in the face-to-face scenario described.
+        """
+        if self.game_mode == GameMode.PVA and self.ai_thinking:
+            return
+
+        player = self.game_state.current_player
+        cur_row, cur_col = self.game_state.player_positions[player]
+        opp = self.game_state.get_opponent(player)
+        opp_row, opp_col = self.game_state.player_positions[opp]
+
+        # Check adjacency (face-to-face)
+        row_diff = opp_row - cur_row
+        col_diff = opp_col - cur_col
+
+        if not ((abs(row_diff) == 1 and col_diff == 0) or (abs(col_diff) == 1 and row_diff == 0)):
+            # Not face-to-face adjacent -> diagonal not allowed
+            return
+
+        dr = row_diff
+        dc = col_diff
+
+        # Compute jump target; if jump available, diagonal is not necessary (we allow automatic jump in WASD path),
+        # but if user pressed J/K while jump is available, we can ignore diagonal (or disallow). We'll prefer jump so do nothing here.
+        jump_row = opp_row + dr
+        jump_col = opp_col + dc
+        if 0 <= jump_row < BOARD_SIZE and 0 <= jump_col < BOARD_SIZE:
+            if not self.game_state.is_wall_between_coords(self.game_state.walls, opp_row, opp_col, jump_row, jump_col):
+                # Jump available: do not allow diagonal
+                return
+
+        # Jump blocked -> compute perpendicular options
+        if dr != 0:
+            perps = [(0, -1), (0, 1)]
+        else:
+            perps = [(-1, 0), (1, 0)]
+
+        # choose left/right based on requested param
+        idx = 0 if left else 1
+        pdr, pdc = perps[idx]
+        diag_row = opp_row + pdr
+        diag_col = opp_col + pdc
+
+        # Validate diagonal destination
+        if not (0 <= diag_row < BOARD_SIZE and 0 <= diag_col < BOARD_SIZE):
+            return
+
+        # Must ensure there's no wall between opponent and diagonal target
+        if self.game_state.is_wall_between_coords(self.game_state.walls, opp_row, opp_col, diag_row, diag_col):
+            return
+
+        # Also ensure diagonal isn't occupied by the opponent (shouldn't be) or current player
+        if [diag_row, diag_col] == self.game_state.player_positions[opp] or [diag_row, diag_col] == [cur_row, cur_col]:
+            return
+
+        # All checks passed: make the diagonal move
+        if self.game_state.make_move(player, diag_row, diag_col):
             if not self.game_state.game_over:
                 self.game_state.switch_player()
 
@@ -1099,6 +1288,8 @@ class QuoridorGame:
         controls = [
             "Controls:",
             "WASD - Move pawn",
+            "J - Diagonal left (when face-to-face & jump blocked)",
+            "K - Diagonal right (when face-to-face & jump blocked)",
             "Mouse - Place walls",
             "Q - Rotate wall",
             "",
