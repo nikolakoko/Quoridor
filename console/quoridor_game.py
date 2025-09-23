@@ -7,57 +7,47 @@ from dataclasses import dataclass
 from enum import Enum
 from heapq import heappush, heappop
 from typing import List, Optional
+from constants import *
 
 import pygame
 
 pygame.init()
 
-WINDOW_WIDTH = 1100
-WINDOW_HEIGHT = 700
-BOARD_SIZE = 9
-CELL_SIZE = 60
-BOARD_OFFSET_X = 100
-BOARD_OFFSET_Y = 100
-WALL_THICKNESS = 4
+pygame.mixer.init()
 
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-BROWN = (139, 69, 19)
-LIGHT_BROWN = (205, 133, 63)
-BLUE = (0, 100, 200)
-RED = (200, 50, 50)
-GREEN = (50, 200, 50)
-GRAY = (135, 135, 135)
-LIGHT_GRAY = (200, 200, 200)
-DARK_GRAY = (64, 64, 64)
-HOVER_COLOR = (255, 255, 0, 100)
-YELLOW = (255, 255, 0)
-WALL_COLOR = YELLOW
-PALE_GREEN = (128, 255, 128)
+sound_place_wall = pygame.mixer.Sound(SOUND_PLACE_WALL)
+sound_move_pawn = pygame.mixer.Sound(SOUND_MOVE_PAWN)
+sound_winner = pygame.mixer.Sound(SOUND_WINNER)
+
 
 class GameMode(Enum):
     MENU = 0
     PVP = 1
     PVA = 2
 
+
 class AIAlgorithm(Enum):
     MINIMAX = 0
     EXPECTIMAX = 1
     MONTE_CARLO = 2
 
+
 class WallOrientation(Enum):
     HORIZONTAL = 0
     VERTICAL = 1
 
+
 class Player(Enum):
     ONE = 0
     TWO = 1
+
 
 @dataclass
 class Wall:
     row: int
     col: int
     orientation: WallOrientation
+
 
 class GameState:
     def __init__(self):
@@ -313,6 +303,7 @@ class GameState:
     def switch_player(self):
         self.current_player = Player.TWO if self.current_player == Player.ONE else Player.ONE
 
+
 class AIPlayer:
     def __init__(self, algorithm: AIAlgorithm):
         self.algorithm = algorithm
@@ -444,6 +435,7 @@ class AIPlayer:
         score += wall_advantage
         return score
 
+
 class MCTSNode:
     def __init__(self, state: GameState, parent=None, ai_player=None):
         self.state = state
@@ -552,8 +544,10 @@ class MCTSNode:
         best_idx = choices_weights.index(max(choices_weights))
         return self.children[best_idx]
 
+
 class QuoridorGame:
     def __init__(self):
+        self.played_winner_sound = False
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption("Quoridor")
         self.clock = pygame.time.Clock()
@@ -659,8 +653,10 @@ class QuoridorGame:
         if self.game_state and self.game_state.game_over:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 self.game_state = GameState()
+                self.played_winner_sound = False
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_m:
                 self.game_mode = GameMode.MENU
+                self.played_winner_sound = False
             return
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_q:
@@ -715,6 +711,7 @@ class QuoridorGame:
                         can_jump = True
             if can_jump:
                 if self.game_state.make_move(self.game_state.current_player, jump_row, jump_col):
+                    sound_move_pawn.play()
                     if not self.game_state.game_over:
                         self.game_state.switch_player()
                         if (self.game_mode == GameMode.PVA and
@@ -724,6 +721,7 @@ class QuoridorGame:
             else:
                 return
         if self.game_state.make_move(self.game_state.current_player, new_row, new_col):
+            sound_move_pawn.play()
             if not self.game_state.game_over:
                 self.game_state.switch_player()
                 if (self.game_mode == GameMode.PVA and
@@ -763,6 +761,7 @@ class QuoridorGame:
         if [diag_row, diag_col] == self.game_state.player_positions[opp] or [diag_row, diag_col] == [cur_row, cur_col]:
             return
         if self.game_state.make_move(player, diag_row, diag_col):
+            sound_move_pawn.play()
             if not self.game_state.game_over:
                 self.game_state.switch_player()
                 if (self.game_mode == GameMode.PVA and
@@ -776,6 +775,7 @@ class QuoridorGame:
             return
         wall = self.get_wall_from_mouse(mouse_pos)
         if wall and self.game_state.place_wall(self.game_state.current_player, wall):
+            sound_place_wall.play()
             if not self.game_state.game_over:
                 self.game_state.switch_player()
                 if (self.game_mode == GameMode.PVA and
@@ -991,6 +991,10 @@ class QuoridorGame:
             self.screen.blit(text, (BOARD_OFFSET_X + BOARD_SIZE * CELL_SIZE + 50, BOARD_OFFSET_Y + 170 + i * 25))
 
     def draw_game_over(self):
+        if not self.played_winner_sound:
+            sound_winner.play()
+            self.played_winner_sound = True
+
         overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
         overlay.set_alpha(128)
         overlay.fill(BLACK)
@@ -1026,6 +1030,7 @@ class QuoridorGame:
             self.clock.tick(60)
         pygame.quit()
         sys.exit()
+
 
 if __name__ == "__main__":
     game = QuoridorGame()
